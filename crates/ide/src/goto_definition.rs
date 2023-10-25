@@ -32,7 +32,9 @@ pub(crate) fn goto_definition(
     FilePosition { file_id, offset }: FilePosition,
 ) -> Option<RangeInfo<Vec<NavigationTarget>>> {
     let sema = &Semantics::new(db);
-    let file = sema.parse(file_id).syntax().clone();
+    let file = sema.parse(file_id).syntax().clone(); // 拿到 ast.File
+
+    // SyntaxNode 和 SyntaxToken 的区别。token 是叶子节点，node 不是。
     let original_token = pick_best_token(file.token_at_offset(offset), |kind| match kind {
         IDENT
         | INT_NUMBER
@@ -49,6 +51,8 @@ pub(crate) fn goto_definition(
         kind if kind.is_trivia() => 0,
         _ => 1,
     })?;
+
+    // doc comment，先不管
     if let Some(doc_comment) = token_as_doc_comment(&original_token) {
         return doc_comment.get_definition_with_descend_at(sema, offset, |def, _, link_range| {
             let nav = def.try_to_nav(db)?;
@@ -56,16 +60,24 @@ pub(crate) fn goto_definition(
         });
     }
     let navs = sema
+        // 这个 descend_into_macros 是啥意思，为啥返回的是一个 token 的列表
+        // 我知道了，是比如这样的。println!("hellow {}", world);
+        // world 这个 token 在 macro 中，因为宏展开之后，world 这个 token 可能对应多个地方，所以会返回多个
+        // 有一个问题，展开后的 syntax tree 和没展开的 syntax tree 明显是不一样的，rust-analyzer 是怎么处理的
         .descend_into_macros(original_token.clone(), offset)
         .into_iter()
         .filter_map(|token| {
             let parent = token.parent()?;
+            // include! macro, 像 lust_gen.rs 那样
             if let Some(tt) = ast::TokenTree::cast(parent) {
                 if let Some(x) = try_lookup_include_path(sema, tt, token.clone(), file_id) {
                     return Some(vec![x]);
                 }
             }
             Some(
+                // classify_token 就是把 token 影射到 definitions
+                // 下边的 .definitions 不是拿 definitions，而是一个浅包装，实际上 classify_token 已经拿到了
+                // name 和 name ref 的区别。fn foo() {} 的 foo 是 name, fn main() {foo();} 的 foo 是 name ref
                 IdentClass::classify_token(sema, &token)?
                     .definitions()
                     .into_iter()
