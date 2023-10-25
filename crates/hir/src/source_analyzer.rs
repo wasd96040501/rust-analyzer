@@ -117,6 +117,7 @@ impl SourceAnalyzer {
         self.def.as_ref().map(|(_, body, _)| &**body)
     }
 
+    // expr 也有 id 我是很震惊的，咋存的？
     fn expr_id(&self, db: &dyn HirDatabase, expr: &ast::Expr) -> Option<ExprId> {
         let src = match expr {
             ast::Expr::MacroExpr(expr) => {
@@ -124,6 +125,8 @@ impl SourceAnalyzer {
             }
             _ => InFile::new(self.file_id, expr.clone()),
         };
+        // 这个 body source map 是什么东西
+        // 好像就是存 node -> id 的 hashmap，没什么特别的
         let sm = self.body_source_map()?;
         sm.node_expr(src.as_ref())
     }
@@ -295,8 +298,10 @@ impl SourceAnalyzer {
     ) -> Option<Either<FunctionId, FieldId>> {
         let expr_id = self.expr_id(db, &call.clone().into())?;
         let inference_result = self.infer.as_ref()?;
+        // method_resolution 可以拿到 function 和参数（以及返回值）的类型，怎么做到的
         match inference_result.method_resolution(expr_id) {
             Some((f_in_trait, substs)) => {
+                // 这里存一下，再读一下，是不是就 ok 了
                 Some(Either::Left(self.resolve_impl_method_or_trait_def(db, f_in_trait, substs)))
             }
             None => inference_result.field_resolution(expr_id).map(Either::Right),
@@ -827,6 +832,7 @@ impl SourceAnalyzer {
         func: FunctionId,
         substs: Substitution,
     ) -> FunctionId {
+        // 这个 substitution 到底是什么结构？
         let owner = match self.resolver.body_owner() {
             Some(it) => it,
             None => return func,

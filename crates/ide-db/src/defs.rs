@@ -462,8 +462,10 @@ impl NameRefClass {
     ) -> Option<NameRefClass> {
         let _p = profile::span("classify_name_ref").detail(|| name_ref.to_string());
 
+        // 前面搞了一次 .parent(), 为什么这里还要搞一次？
         let parent = name_ref.syntax().parent()?;
 
+        // 我猜是结构体赋值: Data{ x: var, y: var2} 中的 var, var2
         if let Some(record_field) = ast::RecordExprField::for_field_name(name_ref) {
             if let Some((field, local, _)) = sema.resolve_record_field(&record_field) {
                 let res = match local {
@@ -476,6 +478,8 @@ impl NameRefClass {
             }
         }
 
+        // 类似 let push_integer = Vec::<i32>::push 中的 Vec, <i32>, push 都是 segment
+        // https://doc.rust-lang.org/beta/reference/expressions/path-expr.html
         if let Some(path) = ast::PathSegment::cast(parent.clone()).map(|it| it.parent_path()) {
             if path.parent_path().is_none() {
                 if let Some(macro_call) = path.syntax().parent().and_then(ast::MacroCall::cast) {
@@ -491,6 +495,7 @@ impl NameRefClass {
 
         match_ast! {
             match parent {
+                // 看起来普通的 fn 和对象的 method 都走这里
                 ast::MethodCallExpr(method_call) => {
                     sema.resolve_method_call_field_fallback(&method_call)
                         .map(|it| {
