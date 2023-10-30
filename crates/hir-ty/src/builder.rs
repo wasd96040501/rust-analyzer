@@ -74,6 +74,7 @@ impl<D> TyBuilder<D> {
         (self.data, subst)
     }
 
+    // 我终于知道 GenericArg 是啥了，是范型参数！不是范参数
     pub fn push(mut self, arg: impl CastTo<GenericArg>) -> Self {
         assert!(self.remaining() > 0);
         let arg = arg.cast(Interner);

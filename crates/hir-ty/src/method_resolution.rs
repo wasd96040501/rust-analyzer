@@ -728,6 +728,7 @@ pub(crate) fn lookup_impl_method_query(
 }
 
 fn lookup_impl_assoc_item_for_trait_ref(
+    // 这个 trait ref 是包含具体类型信息的
     trait_ref: TraitRef,
     db: &dyn HirDatabase,
     env: Arc<TraitEnvironment>,
@@ -736,7 +737,11 @@ fn lookup_impl_assoc_item_for_trait_ref(
     let hir_trait_id = trait_ref.hir_trait_id();
     let self_ty = trait_ref.self_type_parameter(Interner);
     let self_ty_fp = TyFingerprint::for_trait_impl(&self_ty)?;
+
+    // impl 别的 trait
     let impls = db.trait_impls_in_deps(env.krate);
+
+    // impl 自己的 struct/enum
     let self_impls = match self_ty.kind(Interner) {
         TyKind::Adt(id, _) => {
             id.0.module(db.upcast()).containing_block().map(|it| db.trait_impls_in_block(it))

@@ -12,7 +12,11 @@ use ide_db::{
     RootDatabase,
 };
 use itertools::Itertools;
-use syntax::{ast, AstNode, AstToken, SyntaxKind::*, SyntaxToken, TextRange, T};
+use syntax::{
+    ast, match_ast, AstNode, AstToken,
+    SyntaxKind::{self, *},
+    SyntaxToken, TextRange, T,
+};
 
 // Feature: Go to Definition
 //
@@ -43,14 +47,30 @@ pub(crate) fn goto_definition(
         | T![super]
         | T![crate]
         | T![Self]
-        | COMMENT => 4,
+        | COMMENT => {
+            println!("ident, kind={kind:?}");
+            4
+        }
         // index and prefix ops
         T!['['] | T![']'] | T![?] | T![*] | T![-] | T![!] => 3,
         kind if kind.is_keyword() => 2,
-        T!['('] | T![')'] => 2,
+        T!['('] | T![')'] => {
+            println!("ident, paren. kind={kind:?}");
+            2
+        }
         kind if kind.is_trivia() => 0,
-        _ => 1,
+        _ => {
+            println!("best nothing. kind={kind:?}");
+            1
+        }
     })?;
+
+    // 如果是 string，看一下父节点是否是 macro call，如果是，则展开，然后看是否最终被 builtin format arg 调用
+    // 如果是，则把变量匹配出来
+    // if let SyntaxKind::STRING = original_token.kind() {
+    //     let parent = original_token.parent();
+    //     println!("string parent={parent:?}, kind={:?}", parent.as_ref().map(|p| p.kind()));
+    // }
 
     // doc comment，先不管
     if let Some(doc_comment) = token_as_doc_comment(&original_token) {
@@ -68,12 +88,21 @@ pub(crate) fn goto_definition(
         .into_iter()
         .filter_map(|token| {
             let parent = token.parent()?;
+
+            let ans: Vec<_> = token
+                .parent_ancestors()
+                .map(|x| format!("text={:?}, kind={:?}", x.text(), x.kind()))
+                .collect();
+
+            println!("ans={ans:?}",);
+
             // include! macro, 像 lust_gen.rs 那样
             if let Some(tt) = ast::TokenTree::cast(parent) {
                 if let Some(x) = try_lookup_include_path(sema, tt, token.clone(), file_id) {
                     return Some(vec![x]);
                 }
             }
+
             Some(
                 // classify_token 就是把 token 影射到 definitions
                 // 下边的 .definitions 不是拿 definitions，而是一个浅包装，实际上 classify_token 已经拿到了
@@ -205,6 +234,26 @@ mod tests {
         let navs = analysis.goto_definition(position).unwrap().expect("no definition found").info;
 
         assert!(navs.is_empty(), "didn't expect this to resolve anywhere: {navs:?}")
+    }
+
+    #[test]
+    fn mytest() {
+        check(
+            r#"
+macro_rules! println {
+    ($($arg:tt)*) => ({
+        $crate::io::_print(format_args_nl!($($arg)*));
+    })
+}
+#[rustc_builtin_macro]
+#[macro_export]
+macro_rules! format_args_nl {}
+
+let x = String::from("hello world");
+  //^
+println!("{x$0}");
+}"#,
+        );
     }
 
     #[test]

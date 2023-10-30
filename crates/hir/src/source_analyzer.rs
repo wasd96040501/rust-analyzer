@@ -299,6 +299,7 @@ impl SourceAnalyzer {
         let expr_id = self.expr_id(db, &call.clone().into())?;
         let inference_result = self.infer.as_ref()?;
         // method_resolution 可以拿到 function 和参数（以及返回值）的类型，怎么做到的
+        // 能否拿到 chained func call，或者作为函数入参时的返回值类型
         match inference_result.method_resolution(expr_id) {
             Some((f_in_trait, substs)) => {
                 // 这里存一下，再读一下，是不是就 ok 了

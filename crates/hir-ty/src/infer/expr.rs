@@ -959,6 +959,8 @@ impl InferenceContext<'_> {
             return;
         };
         let trait_data = self.db.trait_data(trait_);
+        // substitution 是这样一种结构？
+        // 其实就是对应 impl<> 里的参数，有 type 和 const 两种, 类型是 vec，需要一一对应
         if let Some(func) = trait_data.method_by_name(&fn_x.method_name()) {
             let subst = TyBuilder::subst_for_def(self.db, trait_, None)
                 .push(callee_ty.clone())

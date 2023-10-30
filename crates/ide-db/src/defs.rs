@@ -163,7 +163,7 @@ impl IdentClass {
                 ast::IndexExpr(index_expr) => OperatorClass::classify_index(sema, &index_expr).map(IdentClass::Operator),
                 ast::PrefixExpr(prefix_expr) => OperatorClass::classify_prefix(sema, &prefix_expr).map(IdentClass::Operator),
                 ast::TryExpr(try_expr) => OperatorClass::classify_try(sema, &try_expr).map(IdentClass::Operator),
-                _ => None,
+                _ => {println!("match nothing. node={node:?}, kind={:?}, text={:?}", node.kind(), node.text()); None},
             }
         }
     }
