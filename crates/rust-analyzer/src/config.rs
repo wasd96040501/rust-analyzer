@@ -454,6 +454,9 @@ config_data! {
         /// Sets the LRU capacity of the specified queries.
         lru_query_capacities: FxHashMap<Box<str>, usize> = "{}",
 
+        /// Set macro expand token limit.
+        macro_expand_token_limit: usize = "1048576",
+
         /// Whether to show `can't find Cargo.toml` error message.
         notifications_cargoTomlNotFound: bool      = "true",
 
@@ -793,6 +796,10 @@ impl Config {
             workspace_roots,
             is_visual_studio_code,
         }
+    }
+
+    pub fn macro_expand_token_limit(&self) -> usize {
+        self.data.macro_expand_token_limit
     }
 
     pub fn rediscover_workspaces(&mut self) {

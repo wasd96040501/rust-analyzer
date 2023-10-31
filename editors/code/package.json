@@ -1435,6 +1435,12 @@
                     "default": {},
                     "type": "object"
                 },
+                "rust-analyzer.macro.expand.token.limit": {
+                    "markdownDescription": "Set macro expand token limit.",
+                    "default": 1048576,
+                    "type": "integer",
+                    "minimum": 0
+                },
                 "rust-analyzer.notifications.cargoTomlNotFound": {
                     "markdownDescription": "Whether to show `can't find Cargo.toml` error message.",
                     "default": true,

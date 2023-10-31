@@ -144,6 +144,7 @@ impl RootDatabase {
         db.set_library_roots_with_durability(Default::default(), Durability::HIGH);
         db.set_expand_proc_attr_macros_with_durability(false, Durability::HIGH);
         db.update_parse_query_lru_capacity(lru_capacity);
+        db.set_token_limit_with_durability(1048576, Durability::HIGH);
         db
     }
 

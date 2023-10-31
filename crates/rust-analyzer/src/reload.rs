@@ -16,7 +16,7 @@
 use std::{iter, mem};
 
 use flycheck::{FlycheckConfig, FlycheckHandle};
-use hir::db::DefDatabase;
+use hir::db::{DefDatabase, ExpandDatabase};
 use ide::Change;
 use ide_db::{
     base_db::{salsa::Durability, CrateGraph, ProcMacroPaths, ProcMacros},
@@ -91,6 +91,18 @@ impl GlobalState {
         {
             self.analysis_host.raw_database_mut().set_expand_proc_attr_macros_with_durability(
                 self.config.expand_proc_attr_macros(),
+                Durability::HIGH,
+            );
+        }
+        if self.config.macro_expand_token_limit() != old_config.macro_expand_token_limit() {
+            println!(
+                "set token limit. before={}, after={}",
+                old_config.macro_expand_token_limit(),
+                self.config.macro_expand_token_limit()
+            );
+
+            self.analysis_host.raw_database_mut().set_token_limit_with_durability(
+                self.config.macro_expand_token_limit(),
                 Durability::HIGH,
             );
         }

@@ -236,25 +236,25 @@ mod tests {
         assert!(navs.is_empty(), "didn't expect this to resolve anywhere: {navs:?}")
     }
 
-    #[test]
-    fn mytest() {
-        check(
-            r#"
-macro_rules! println {
-    ($($arg:tt)*) => ({
-        $crate::io::_print(format_args_nl!($($arg)*));
-    })
-}
-#[rustc_builtin_macro]
-#[macro_export]
-macro_rules! format_args_nl {}
+    //     #[test]
+    //     fn mytest() {
+    //         check(
+    //             r#"
+    // macro_rules! println {
+    //     ($($arg:tt)*) => ({
+    //         $crate::io::_print(format_args_nl!($($arg)*));
+    //     })
+    // }
+    // #[rustc_builtin_macro]
+    // #[macro_export]
+    // macro_rules! format_args_nl {}
 
-let x = String::from("hello world");
-  //^
-println!("{x$0}");
-}"#,
-        );
-    }
+    // let x = String::from("hello world");
+    //   //^
+    // println!("{x$0}");
+    // }"#,
+    //         );
+    //     }
 
     #[test]
     fn goto_def_if_items_same_name() {

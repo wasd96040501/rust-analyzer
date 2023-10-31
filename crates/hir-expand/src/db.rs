@@ -25,7 +25,7 @@ use crate::{
 /// an error will be emitted.
 ///
 /// Actual max for `analysis-stats .` at some point: 30672.
-static TOKEN_LIMIT: Limit = Limit::new(1_048_576);
+// static TOKEN_LIMIT: Limit = Limit::new(1_048_576);
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 /// Old-style `macro_rules` or the new macros 2.0
@@ -97,6 +97,9 @@ impl TokenExpander {
 #[salsa::query_group(ExpandDatabaseStorage)]
 pub trait ExpandDatabase: SourceDatabase {
     fn ast_id_map(&self, file_id: HirFileId) -> Arc<AstIdMap>;
+
+    #[salsa::input]
+    fn token_limit(&self) -> usize;
 
     /// Main public API -- parses a hir file, not caring whether it's a real
     /// file or a macro expansion.
@@ -615,7 +618,7 @@ fn macro_expand(db: &dyn ExpandDatabase, id: MacroCallId) -> ExpandResult<Arc<tt
     }
 
     // Set a hard limit for the expanded tt
-    if let Err(value) = check_tt_count(&tt) {
+    if let Err(value) = check_tt_count(db, &tt) {
         return value;
     }
 
@@ -656,7 +659,7 @@ fn expand_proc_macro(db: &dyn ExpandDatabase, id: MacroCallId) -> ExpandResult<A
         expander.expand(db, loc.def.krate, loc.krate, arg_tt, attr_arg.as_ref());
 
     // Set a hard limit for the expanded tt
-    if let Err(value) = check_tt_count(&tt) {
+    if let Err(value) = check_tt_count(db, &tt) {
         return value;
     }
 
@@ -687,9 +690,14 @@ fn token_tree_to_syntax_node(
     mbe::token_tree_to_syntax_node(tt, entry_point)
 }
 
-fn check_tt_count(tt: &tt::Subtree) -> Result<(), ExpandResult<Arc<tt::Subtree>>> {
+fn check_tt_count(
+    db: &dyn ExpandDatabase,
+    tt: &tt::Subtree,
+) -> Result<(), ExpandResult<Arc<tt::Subtree>>> {
+    let token_limit = Limit::new(db.token_limit());
+
     let count = tt.count();
-    if TOKEN_LIMIT.check(count).is_err() {
+    if token_limit.check(count).is_err() {
         Err(ExpandResult {
             value: Arc::new(tt::Subtree {
                 delimiter: tt::Delimiter::UNSPECIFIED,
@@ -698,7 +706,7 @@ fn check_tt_count(tt: &tt::Subtree) -> Result<(), ExpandResult<Arc<tt::Subtree>>
             err: Some(ExpandError::other(format!(
                 "macro invocation exceeds token limit: produced {} tokens, limit is {}",
                 count,
-                TOKEN_LIMIT.inner(),
+                token_limit.inner(),
             ))),
         })
     } else {
