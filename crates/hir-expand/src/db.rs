@@ -614,9 +614,11 @@ fn macro_expand(db: &dyn ExpandDatabase, id: MacroCallId) -> ExpandResult<Arc<tt
         err = error.clone().or(err);
     }
 
-    // Set a hard limit for the expanded tt
-    if let Err(value) = check_tt_count(&tt) {
-        return value;
+    if !skip_check_tt_count(db, &loc) {
+        // Set a hard limit for the expanded tt
+        if let Err(value) = check_tt_count(&tt) {
+            return value;
+        }
     }
 
     ExpandResult { value: Arc::new(tt), err }
@@ -655,9 +657,11 @@ fn expand_proc_macro(db: &dyn ExpandDatabase, id: MacroCallId) -> ExpandResult<A
     let ExpandResult { value: mut tt, err } =
         expander.expand(db, loc.def.krate, loc.krate, arg_tt, attr_arg.as_ref());
 
-    // Set a hard limit for the expanded tt
-    if let Err(value) = check_tt_count(&tt) {
-        return value;
+    if !skip_check_tt_count(db, &loc) {
+        // Set a hard limit for the expanded tt
+        if let Err(value) = check_tt_count(&tt) {
+            return value;
+        }
     }
 
     fixup::reverse_fixups(&mut tt, arg_tm, undo_info);
@@ -685,6 +689,18 @@ fn token_tree_to_syntax_node(
         ExpandTo::Expr => mbe::TopEntryPoint::Expr,
     };
     mbe::token_tree_to_syntax_node(tt, entry_point)
+}
+
+fn skip_check_tt_count(db: &dyn ExpandDatabase, loc: &MacroCallLoc) -> bool {
+    let Some(macro_call) = ast::MacroCall::cast(loc.to_node(db).file_syntax(db)) else {
+        return false;
+    };
+
+    let Some(name_ref) = macro_call.path().and_then(|p| p.segment()).and_then(|s| s.name_ref()) else {
+        return false;
+    };
+
+    name_ref.text() == "include"
 }
 
 fn check_tt_count(tt: &tt::Subtree) -> Result<(), ExpandResult<Arc<tt::Subtree>>> {
