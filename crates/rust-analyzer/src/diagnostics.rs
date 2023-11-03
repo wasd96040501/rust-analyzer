@@ -1,7 +1,7 @@
 //! Book keeping for keeping diagnostics easily in sync with the client.
 pub(crate) mod to_proto;
 
-use std::mem;
+use std::{mem, time::SystemTime};
 
 use ide::FileId;
 use ide_db::FxHashMap;
@@ -132,6 +132,11 @@ pub(crate) fn fetch_native_diagnostics(
     subscriptions
         .into_iter()
         .filter_map(|file_id| {
+            let path = snapshot.file_id_to_file_path(file_id);
+
+            let now = SystemTime::now();
+            tracing::error!("begin diagnostics. path={path:?}");
+
             let line_index = snapshot.file_line_index(file_id).ok()?;
             let diagnostics = snapshot
                 .analysis
@@ -156,6 +161,11 @@ pub(crate) fn fetch_native_diagnostics(
                     data: None,
                 })
                 .collect::<Vec<_>>();
+
+            tracing::error!(
+                "diagnostics done. path={path:?}, cost={:?}",
+                SystemTime::now().duration_since(now).unwrap_or_default()
+            );
             Some((file_id, diagnostics))
         })
         .collect()
