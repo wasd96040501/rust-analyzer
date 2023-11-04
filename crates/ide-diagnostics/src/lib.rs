@@ -68,7 +68,7 @@ mod handlers {
 #[cfg(test)]
 mod tests;
 
-use std::collections::HashMap;
+use std::{collections::HashMap, time::SystemTime};
 
 use hir::{diagnostics::AnyDiagnostic, InFile, Semantics};
 use ide_db::{
@@ -285,9 +285,19 @@ pub fn diagnostics(
     resolve: &AssistResolveStrategy,
     file_id: FileId,
 ) -> Vec<Diagnostic> {
+    tracing::error!("begin parse file. file_id={file_id:?}");
+    let now = SystemTime::now();
+
     let _p = profile::span("diagnostics");
     let sema = Semantics::new(db);
     let parse = db.parse(file_id);
+    tracing::error!(
+        "parse file done. file_id={file_id:?}, cost={:?}",
+        SystemTime::now().duration_since(now).unwrap_or_default()
+    );
+
+    let now = SystemTime::now();
+
     let mut res = Vec::new();
 
     // [#34344] Only take first 128 errors to prevent slowing down editor/ide, the number 128 is chosen arbitrarily.
@@ -300,6 +310,11 @@ pub fn diagnostics(
     }));
 
     let parse = sema.parse(file_id);
+    tracing::error!(
+        "parse file sema done. file_id={file_id:?}, cost={:?}",
+        SystemTime::now().duration_since(now).unwrap_or_default()
+    );
+    let now = SystemTime::now();
 
     for node in parse.syntax().descendants() {
         handlers::useless_braces::useless_braces(&mut res, file_id, &node);
@@ -308,6 +323,11 @@ pub fn diagnostics(
     }
 
     let module = sema.to_module_def(file_id);
+    tracing::error!(
+        "sema to module done. file_id={file_id:?}, cost={:?}",
+        SystemTime::now().duration_since(now).unwrap_or_default()
+    );
+    let now = SystemTime::now();
 
     let ctx = DiagnosticsContext { config, sema, resolve };
     if module.is_none() {
@@ -318,6 +338,10 @@ pub fn diagnostics(
     if let Some(m) = module {
         m.diagnostics(db, &mut diags);
     }
+    tracing::error!(
+        "diag done. file_id={file_id:?}, cost={:?}",
+        SystemTime::now().duration_since(now).unwrap_or_default()
+    );
 
     for diag in diags {
         #[rustfmt::skip]

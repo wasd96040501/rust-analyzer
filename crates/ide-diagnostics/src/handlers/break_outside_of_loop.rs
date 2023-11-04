@@ -40,6 +40,21 @@ fn foo() {
     }
 
     #[test]
+    fn include_does_not_break_diagnostics() {
+        check_diagnostics(
+            r#"
+//- minicore: include
+//- /lib.rs crate:lib
+include!("include-me.rs");
+//- /include-me.rs
+/// long doc that pushes the diagnostic range beyond the first file's text length
+#[err]
+mod prim_never {}
+"#,
+        );
+    }
+
+    #[test]
     fn async_blocks_are_borders() {
         check_diagnostics(
             r#"

@@ -13,6 +13,8 @@ use crate::cli::flags;
 
 impl flags::Diagnostics {
     pub fn run(self) -> anyhow::Result<()> {
+        tracing::error!("diag in run");
+
         let mut cargo_config = CargoConfig::default();
         cargo_config.sysroot = Some(RustLibSource::Discover);
         let with_proc_macro_server = if let Some(p) = &self.proc_macro_srv {

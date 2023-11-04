@@ -135,7 +135,7 @@ pub(crate) fn fetch_native_diagnostics(
             let path = snapshot.file_id_to_file_path(file_id);
 
             let now = SystemTime::now();
-            tracing::error!("begin diagnostics. path={path:?}");
+            tracing::error!("begin diagnostics. file_id={file_id:?}, path={path:?}");
 
             let line_index = snapshot.file_line_index(file_id).ok()?;
             let diagnostics = snapshot

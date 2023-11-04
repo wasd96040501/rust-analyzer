@@ -643,6 +643,7 @@ impl Analysis {
             Some(it) => it.iter().any(|&it| it == AssistKind::None || it == AssistKind::QuickFix),
             None => true,
         };
+        tracing::error!("assist call diag");
 
         self.with_db(|db| {
             let diagnostic_assists = if diagnostics_config.enabled && include_fixes {

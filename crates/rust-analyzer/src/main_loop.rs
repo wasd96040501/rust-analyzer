@@ -442,7 +442,7 @@ impl GlobalState {
                 !db.source_root(source_root).is_library
             })
             .collect::<Vec<_>>();
-        tracing::trace!("updating notifications for {:?}", subscriptions);
+        tracing::error!("updating notifications for {:?}", subscriptions);
 
         // Diagnostics are triggered by the user typing
         // so we run them on a latency sensitive thread.
