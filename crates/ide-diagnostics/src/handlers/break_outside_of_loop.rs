@@ -23,7 +23,10 @@ pub(crate) fn break_outside_of_loop(
 
 #[cfg(test)]
 mod tests {
-    use crate::tests::check_diagnostics;
+    use crate::{
+        tests::{check_diagnostics, check_diagnostics_with_config},
+        DiagnosticsConfig,
+    };
 
     #[test]
     fn outside_of_loop() {
@@ -41,15 +44,21 @@ fn foo() {
 
     #[test]
     fn include_does_not_break_diagnostics() {
-        check_diagnostics(
+        let mut config = DiagnosticsConfig::test_sample();
+
+        config.disabled.insert("unlinked-file".to_string());
+
+        check_diagnostics_with_config(
+            config,
             r#"
 //- minicore: include
 //- /lib.rs crate:lib
-include!("include-me.rs");
+    include!("include-me.rs");
+  //^^^^^^^^^^^^^^^^^^^^^^^^^^ error: unresolved macro `err`
 //- /include-me.rs
 /// long doc that pushes the diagnostic range beyond the first file's text length
-#[err]
-mod prim_never {}
+    #[err]
+    mod prim_never {}
 "#,
         );
     }
