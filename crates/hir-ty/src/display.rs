@@ -738,8 +738,6 @@ impl HirDisplay for Ty {
         &self,
         f @ &mut HirFormatter { db, .. }: &mut HirFormatter<'_>,
     ) -> Result<(), HirDisplayError> {
-        tracing::error!("ty start");
-
         if f.should_truncate() {
             return write!(f, "{TYPE_HINT_TRUNCATION}");
         }
@@ -931,7 +929,6 @@ impl HirDisplay for Ty {
                 }
             }
             TyKind::Adt(AdtId(def_id), parameters) => {
-                tracing::error!("ty adt start");
                 f.start_location_link((*def_id).into());
                 match f.display_target {
                     DisplayTarget::Diagnostics | DisplayTarget::Test => {
@@ -1238,7 +1235,6 @@ impl HirDisplay for Ty {
             TyKind::GeneratorWitness(..) => write!(f, "{{generator witness}}")?,
         }
 
-        tracing::error!("ty done");
         Ok(())
     }
 }

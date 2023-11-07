@@ -158,29 +158,39 @@ impl HirDisplay for Adt {
 
 impl HirDisplay for Struct {
     fn hir_fmt(&self, f: &mut HirFormatter<'_>) -> Result<(), HirDisplayError> {
-        tracing::error!("right");
-
         write_visibility(self.module(f.db).id, self.visibility(f.db), f)?;
         f.write_str("struct ")?;
         write!(f, "{}", self.name(f.db).display(f.db.upcast()))?;
         let def_id = GenericDefId::AdtId(AdtId::StructId(self.id));
         write_generic_params(def_id, f)?;
-        write_where_clause(def_id, f)?;
-        let fields = self.fields(f.db);
-        if fields.len() > 0 {
-            tracing::error!("field ");
-            f.write_str(" {\n")?;
-            for (i, field) in self.fields(f.db).into_iter().enumerate() {
-                tracing::error!("field {}", i);
-                field.hir_fmt(f)?;
-                tracing::error!("field {} done", i);
-                f.write_str("\n")?;
+
+        let field_is_tuple_index =
+            self.variant_data(f.db).fields().iter().any(|(_, f)| f.name.as_tuple_index().is_some());
+
+        if field_is_tuple_index {
+            f.write_char('(')?;
+            for (id, _) in self.variant_data(f.db).fields().iter() {
+                let field = Field { parent: (*self).into(), id };
+                field.ty(f.db).hir_fmt(f)?;
+                f.write_str(", ")?;
             }
-            f.write_str("}")?;
-            tracing::error!("write field done",);
+            f.write_str(");")?;
+
+            return Ok(());
         }
 
-        tracing::error!("fmt done");
+        write_where_clause(def_id, f)?;
+
+        let fields = self.fields(f.db);
+        if !fields.is_empty() {
+            f.write_str(" {\n")?;
+            for field in self.fields(f.db) {
+                f.write_str("    ")?;
+                field.hir_fmt(f)?;
+                f.write_char('\n')?;
+            }
+            f.write_str("}")?;
+        }
 
         Ok(())
     }
@@ -194,6 +204,18 @@ impl HirDisplay for Enum {
         let def_id = GenericDefId::AdtId(AdtId::EnumId(self.id));
         write_generic_params(def_id, f)?;
         write_where_clause(def_id, f)?;
+
+        let variants = self.variants(f.db);
+        if !variants.is_empty() {
+            f.write_str(" {\n")?;
+            for variant in variants {
+                f.write_str("    ");
+                variant.hir_fmt(f);
+                f.write_char('\n');
+            }
+            f.write_str("}")?;
+        }
+
         Ok(())
     }
 }
@@ -206,21 +228,27 @@ impl HirDisplay for Union {
         let def_id = GenericDefId::AdtId(AdtId::UnionId(self.id));
         write_generic_params(def_id, f)?;
         write_where_clause(def_id, f)?;
+
+        let fields = self.fields(f.db);
+        if !fields.is_empty() {
+            f.write_str(" {\n")?;
+            for field in self.fields(f.db) {
+                f.write_str("    ")?;
+                field.hir_fmt(f)?;
+                f.write_char('\n')?;
+            }
+            f.write_str("}")?;
+        }
+
         Ok(())
     }
 }
 
 impl HirDisplay for Field {
     fn hir_fmt(&self, f: &mut HirFormatter<'_>) -> Result<(), HirDisplayError> {
-        tracing::error!("field start");
         write_visibility(self.parent.module(f.db).id, self.visibility(f.db), f)?;
-        tracing::error!("field vis done");
         write!(f, "{}: ", self.name(f.db).display(f.db.upcast()))?;
-        tracing::error!("field name done");
-        let res = self.ty(f.db).hir_fmt(f);
-        tracing::error!("field ty done");
-
-        res
+        self.ty(f.db).hir_fmt(f)
     }
 }
 

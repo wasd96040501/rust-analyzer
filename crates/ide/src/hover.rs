@@ -125,7 +125,6 @@ fn hover_simple(
     file: SyntaxNode,
     config: &HoverConfig,
 ) -> Option<RangeInfo<HoverResult>> {
-    tracing::error!("hover simple");
     let original_token = pick_best_token(file.token_at_offset(offset), |kind| match kind {
         IDENT
         | INT_NUMBER
