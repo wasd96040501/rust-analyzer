@@ -1751,6 +1751,8 @@ fn my() {}
 
 #[test]
 fn test_hover_struct_doc_comment() {
+    println!("haha");
+
     check(
         r#"
 /// This is an example
@@ -1763,7 +1765,10 @@ fn test_hover_struct_doc_comment() {
 ///
 /// assert_eq!(6, my_crate::add_one(5));
 /// ```
-struct Bar;
+struct Bar {
+    x: i64,
+    y: i64,
+}
 
 fn foo() { let bar = Ba$0r; }
 "#,

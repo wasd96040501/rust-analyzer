@@ -158,12 +158,30 @@ impl HirDisplay for Adt {
 
 impl HirDisplay for Struct {
     fn hir_fmt(&self, f: &mut HirFormatter<'_>) -> Result<(), HirDisplayError> {
+        tracing::error!("right");
+
         write_visibility(self.module(f.db).id, self.visibility(f.db), f)?;
         f.write_str("struct ")?;
         write!(f, "{}", self.name(f.db).display(f.db.upcast()))?;
         let def_id = GenericDefId::AdtId(AdtId::StructId(self.id));
         write_generic_params(def_id, f)?;
         write_where_clause(def_id, f)?;
+        let fields = self.fields(f.db);
+        if fields.len() > 0 {
+            tracing::error!("field ");
+            f.write_str(" {\n")?;
+            for (i, field) in self.fields(f.db).into_iter().enumerate() {
+                tracing::error!("field {}", i);
+                field.hir_fmt(f)?;
+                tracing::error!("field {} done", i);
+                f.write_str("\n")?;
+            }
+            f.write_str("}")?;
+            tracing::error!("write field done",);
+        }
+
+        tracing::error!("fmt done");
+
         Ok(())
     }
 }
@@ -194,9 +212,15 @@ impl HirDisplay for Union {
 
 impl HirDisplay for Field {
     fn hir_fmt(&self, f: &mut HirFormatter<'_>) -> Result<(), HirDisplayError> {
+        tracing::error!("field start");
         write_visibility(self.parent.module(f.db).id, self.visibility(f.db), f)?;
+        tracing::error!("field vis done");
         write!(f, "{}: ", self.name(f.db).display(f.db.upcast()))?;
-        self.ty(f.db).hir_fmt(f)
+        tracing::error!("field name done");
+        let res = self.ty(f.db).hir_fmt(f);
+        tracing::error!("field ty done");
+
+        res
     }
 }
 

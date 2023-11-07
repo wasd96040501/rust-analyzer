@@ -637,6 +637,8 @@ where
     E: Fn(&D) -> Result<Layout, LayoutError>,
     E2: Fn(&Layout) -> Option<u64>,
 {
+    tracing::error!("im calling");
+
     let mut label = def.display(db).to_string();
     if let Some(layout) = render_memory_layout(
         config.memory_layout,
@@ -647,6 +649,7 @@ where
         format_to!(label, "{layout}");
     }
     let docs = def.docs(db);
+    tracing::error!("res: {label}, {docs:?}");
     (label, docs)
 }
 

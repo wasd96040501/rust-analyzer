@@ -125,6 +125,7 @@ fn hover_simple(
     file: SyntaxNode,
     config: &HoverConfig,
 ) -> Option<RangeInfo<HoverResult>> {
+    tracing::error!("hover simple");
     let original_token = pick_best_token(file.token_at_offset(offset), |kind| match kind {
         IDENT
         | INT_NUMBER
@@ -141,6 +142,7 @@ fn hover_simple(
         kind if kind.is_trivia() => 0,
         _ => 1,
     })?;
+    tracing::error!("pick token done");
 
     if let Some(doc_comment) = token_as_doc_comment(&original_token) {
         cov_mark::hit!(no_highlight_on_comment_hover);
@@ -149,6 +151,7 @@ fn hover_simple(
             Some(RangeInfo::new(range, res))
         });
     }
+    tracing::error!("pick done");
 
     let in_attr = original_token
         .parent_ancestors()
@@ -158,6 +161,7 @@ fn hover_simple(
             original_token.parent().and_then(ast::TokenTree::cast),
             Some(tt) if tt.syntax().ancestors().any(|it| ast::Meta::can_cast(it.kind()))
         );
+    tracing::error!("attr done");
 
     // prefer descending the same token kind in attribute expansions, in normal macros text
     // equivalency is more important
@@ -167,6 +171,7 @@ fn hover_simple(
         sema.descend_into_macros_with_same_text(original_token.clone(), offset)
     };
     let descended = || descended.iter();
+    tracing::error!("decent done");
 
     let result = descended()
         // try lint hover
@@ -190,13 +195,16 @@ fn hover_simple(
                             ..
                         }) => Some(vec![(Definition::ExternCrateDecl(decl), node)]),
 
-                        class => Some(
-                            class
-                                .definitions()
-                                .into_iter()
-                                .zip(iter::repeat(node))
-                                .collect::<Vec<_>>(),
-                        ),
+                        class => {
+                            tracing::error!("hahahah");
+                            Some(
+                                class
+                                    .definitions()
+                                    .into_iter()
+                                    .zip(iter::repeat(node))
+                                    .collect::<Vec<_>>(),
+                            )
+                        }
                     }
                 })
                 .flatten()
@@ -257,6 +265,7 @@ fn hover_simple(
             })
         });
 
+    tracing::error!("all done");
     result.map(|mut res: HoverResult| {
         res.actions = dedupe_or_merge_hover_actions(res.actions);
         RangeInfo::new(original_token.text_range(), res)
@@ -301,6 +310,8 @@ pub(crate) fn hover_for_definition(
     node: &SyntaxNode,
     config: &HoverConfig,
 ) -> Option<HoverResult> {
+    tracing::error!("hover for def");
+
     let famous_defs = match &definition {
         Definition::BuiltinType(_) => Some(FamousDefs(sema, sema.scope(node)?.krate())),
         _ => None,
