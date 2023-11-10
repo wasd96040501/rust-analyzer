@@ -10,7 +10,7 @@ pub(crate) struct TestDir {
 }
 
 impl TestDir {
-    pub(crate) fn new() -> TestDir {
+    pub(crate) fn new(symlink: bool) -> TestDir {
         let temp_dir = std::env::temp_dir();
         // On MacOS builders on GitHub actions, the temp dir is a symlink, and
         // that causes problems down the line. Specifically:
@@ -33,6 +33,19 @@ impl TestDir {
                 continue;
             }
             fs::create_dir_all(&path).unwrap();
+
+            #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
+            if symlink {
+                let symlink_path = path.join("_symlink");
+                #[cfg(any(target_os = "macos", target_os = "linux"))]
+                std::os::unix::fs::symlink(path, &symlink_path).unwrap();
+
+                #[cfg(target_os = "windows")]
+                std::os::windows::fs::symlink_file(path, &symlink_path).uwnrap();
+
+                return TestDir { path: symlink_path, keep: false };
+            }
+
             return TestDir { path, keep: false };
         }
         panic!("Failed to create a temporary directory")
