@@ -683,11 +683,9 @@ version = \"0.0.0\"
 }
 
 fn out_dirs_check_impl(root_contains_symlink: bool) {
-    // if skip_slow_tests() {
-    //     return;
-    // }
-    //
-    println!("begin run");
+    if skip_slow_tests() {
+        return;
+    }
 
     let mut server = Project::with_fixture(
         r###"
