@@ -31,6 +31,8 @@ pub(crate) fn goto_definition(
     db: &RootDatabase,
     FilePosition { file_id, offset }: FilePosition,
 ) -> Option<RangeInfo<Vec<NavigationTarget>>> {
+    tracing::error!("goto def");
+
     let sema = &Semantics::new(db);
     let file = sema.parse(file_id).syntax().clone();
     let original_token = pick_best_token(file.token_at_offset(offset), |kind| match kind {
@@ -49,6 +51,9 @@ pub(crate) fn goto_definition(
         kind if kind.is_trivia() => 0,
         _ => 1,
     })?;
+
+    tracing::error!("best token={}", original_token.text());
+
     if let Some(doc_comment) = token_as_doc_comment(&original_token) {
         return doc_comment.get_definition_with_descend_at(sema, offset, |def, _, link_range| {
             let nav = def.try_to_nav(db)?;
@@ -65,6 +70,9 @@ pub(crate) fn goto_definition(
                     return Some(vec![x]);
                 }
             }
+
+            tracing::error!("classify, token={:?}", token.text());
+
             Some(
                 IdentClass::classify_token(sema, &token)?
                     .definitions()
@@ -838,7 +846,7 @@ fn test() {
 #[rustc_builtin_macro]
 macro_rules! include {}
 
-include!("foo.rs");
+include!("pig/foo.rs");
 
 fn f() {
     foo$0();
@@ -848,9 +856,33 @@ mod confuse_index {
     pub fn foo() {}
 }
 
-//- /foo.rs
+//- /pig/foo.rs
 fn foo() {}
  //^^^
+        "#,
+        );
+    }
+
+    #[test]
+    fn goto_through_included_file2() {
+        check(
+            r#"
+//- /main.rs
+#[rustc_builtin_macro]
+macro_rules! include {}
+
+include!("pig/foo.rs");
+
+fn f() {
+    foo();
+}
+
+mod confuse_index {
+    pub fn foo() {}
+}
+
+//- /pig/foo.rs
+fn foo$0() {}
         "#,
         );
     }

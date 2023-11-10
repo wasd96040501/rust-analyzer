@@ -30,3 +30,4 @@ profile.workspace = true
 stdx.workspace = true
 syntax.workspace = true
 tt.workspace = true
+tracing = "0.1.40"

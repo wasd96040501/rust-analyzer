@@ -186,6 +186,8 @@ impl IdentClass {
     }
 
     pub fn definitions(self) -> ArrayVec<Definition, 2> {
+        tracing::error!("definition kind={self:?}");
+
         let mut res = ArrayVec::new();
         match self {
             IdentClass::NameClass(NameClass::Definition(it) | NameClass::ConstReference(it)) => {
@@ -486,6 +488,8 @@ impl NameRefClass {
                     }
                 }
             }
+            let pathname = path.syntax().text().to_string();
+            let xx = pathname.as_str();
             return sema.resolve_path(&path).map(Into::into).map(NameRefClass::Definition);
         }
 

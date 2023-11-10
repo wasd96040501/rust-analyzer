@@ -532,17 +532,26 @@ impl<'db> SemanticsImpl<'db> {
         offset: TextSize,
         f: &mut dyn FnMut(InFile<SyntaxToken>) -> bool,
     ) {
+        tracing::error!("start decent into macros");
+
         let _p = profile::span("descend_into_macros");
         let relative_token_offset = token.text_range().start().checked_sub(offset);
         let parent = match token.parent() {
             Some(it) => it,
-            None => return,
+            None => {
+                tracing::error!("no parent");
+                return;
+            }
         };
         let sa = match self.analyze_no_infer(&parent) {
             Some(it) => it,
-            None => return,
+            None => {
+                tracing::error!("no source map");
+                return;
+            }
         };
         let def_map = sa.resolver.def_map();
+        tracing::error!("got defmap");
 
         let mut stack: SmallVec<[_; 4]> = smallvec![InFile::new(sa.file_id, token)];
         let mut cache = self.expansion_info_cache.borrow_mut();
@@ -1110,6 +1119,8 @@ impl<'db> SemanticsImpl<'db> {
         let node = self.find_file(node);
 
         let container = self.with_ctx(|ctx| ctx.find_container(node))?;
+
+        tracing::error!("begin resolve");
 
         let resolver = match container {
             ChildContainer::DefWithBodyId(def) => {

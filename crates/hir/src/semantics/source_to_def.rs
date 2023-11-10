@@ -119,15 +119,33 @@ impl SourceToDefCtx<'_, '_> {
     pub(super) fn file_to_def(&self, file: FileId) -> SmallVec<[ModuleId; 1]> {
         let _p = profile::span("SourceBinder::to_module_def");
         let mut mods = SmallVec::new();
+
         for &crate_id in self.db.relevant_crates(file).iter() {
+            let crate_data = &self.db.crate_graph()[crate_id];
+
+            tracing::error!(
+                "crate={:?}, root_file_id={:?}",
+                crate_data.display_name,
+                crate_data.root_file_id,
+            );
+
             // FIXME: inner items
             let crate_def_map = self.db.crate_def_map(crate_id);
+
+            let mut total_cnt = 0;
+            for _ in crate_def_map.modules() {
+                total_cnt += 1;
+            }
+
             mods.extend(
                 crate_def_map
                     .modules_for_file(file)
                     .map(|local_id| crate_def_map.module_id(local_id)),
-            )
+            );
+            tracing::error!("total mod={total_cnt}");
         }
+
+        tracing::error!("mods len{}", mods.len());
         mods
     }
 
@@ -370,7 +388,12 @@ impl SourceToDefCtx<'_, '_> {
             }
         }
 
+        tracing::error!("find container");
+        let ismacro = src.file_id.is_macro();
+        let file_id = format!("{:?}", src.file_id.file_id());
+        let file_id2 = file_id.as_str();
         let def = self.file_to_def(src.file_id.original_file(self.db.upcast())).get(0).copied()?;
+        tracing::error!("find container successed");
         Some(def.into())
     }
 
