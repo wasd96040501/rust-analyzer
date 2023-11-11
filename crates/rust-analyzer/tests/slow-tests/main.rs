@@ -511,7 +511,7 @@ fn test_missing_module_code_action_in_json_project() {
         return;
     }
 
-    let tmp_dir = TestDir::new();
+    let tmp_dir = TestDir::new(false);
 
     let path = tmp_dir.path();
 
@@ -682,13 +682,12 @@ version = \"0.0.0\"
     );
 }
 
-#[test]
-fn out_dirs_check() {
+fn out_dirs_check_impl(root_contains_symlink: bool) {
     if skip_slow_tests() {
         return;
     }
 
-    let server = Project::with_fixture(
+    let mut server = Project::with_fixture(
         r###"
 //- /Cargo.toml
 [package]
@@ -745,20 +744,26 @@ fn main() {
     let another_str = include_str!("main.rs");
 }
 "###,
-    )
-    .with_config(serde_json::json!({
-        "cargo": {
-            "buildScripts": {
-                "enable": true
-            },
-            "sysroot": null,
-            "extraEnv": {
-                "RUSTC_BOOTSTRAP": "1"
+    );
+
+    if root_contains_symlink {
+        server = server.with_root_dir_contains_symlink();
+    }
+
+    let server = server
+        .with_config(serde_json::json!({
+            "cargo": {
+                "buildScripts": {
+                    "enable": true
+                },
+                "sysroot": null,
+                "extraEnv": {
+                    "RUSTC_BOOTSTRAP": "1"
+                }
             }
-        }
-    }))
-    .server()
-    .wait_until_workspace_is_loaded();
+        }))
+        .server()
+        .wait_until_workspace_is_loaded();
 
     let res = server.send_request::<HoverRequest>(HoverParams {
         text_document_position_params: TextDocumentPositionParams::new(
@@ -829,6 +834,16 @@ fn main() {
             "targetUri": "file:///[..]src/main.rs"
         }]),
     );
+}
+
+#[test]
+fn out_dirs_check() {
+    out_dirs_check_impl(false);
+}
+
+#[test]
+fn root_contains_symlink_out_dirs_check() {
+    out_dirs_check_impl(true);
 }
 
 #[test]
@@ -963,7 +978,7 @@ fn test_will_rename_files_same_level() {
         return;
     }
 
-    let tmp_dir = TestDir::new();
+    let tmp_dir = TestDir::new(false);
     let tmp_dir_path = tmp_dir.path().to_owned();
     let tmp_dir_str = tmp_dir_path.to_str().unwrap();
     let base_path = PathBuf::from(format!("file://{tmp_dir_str}"));
