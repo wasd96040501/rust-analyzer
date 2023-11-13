@@ -49,6 +49,7 @@ pub mod visibility;
 pub mod find_path;
 pub mod import_map;
 
+use itertools::Itertools;
 pub use rustc_dependencies::abi as layout;
 use triomphe::Arc;
 
@@ -1318,9 +1319,25 @@ fn derive_macro_as_call_id(
     krate: CrateId,
     resolver: impl Fn(path::ModPath) -> Option<(MacroId, MacroDefId)>,
 ) -> Result<(MacroId, MacroDefId, MacroCallId), UnresolvedMacro> {
+    let p = item_attr.path.segments().iter().filter_map(|x| x.as_str()).join("::");
+
     let (macro_id, def_id) = resolver(item_attr.path.clone())
-        .filter(|(_, def_id)| def_id.is_derive())
-        .ok_or_else(|| UnresolvedMacro { path: item_attr.path.clone() })?;
+        .filter(|(_, def_id)| {
+            if p == "Asset" && !def_id.is_derive() {
+                tracing::error!(
+                    "asset id is not derive. path={:?}, def_id={def_id:?}",
+                    item_attr.path
+                );
+            }
+
+            def_id.is_derive()
+        })
+        .ok_or_else(|| {
+            if p == "Asset" {
+                tracing::error!("unresolved macro. path={:?}", item_attr.path.clone());
+            }
+            UnresolvedMacro { path: item_attr.path.clone() }
+        })?;
     let call_id = def_id.as_lazy_macro(
         db.upcast(),
         krate,

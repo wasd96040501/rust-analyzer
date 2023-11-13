@@ -190,6 +190,8 @@ fn eager_macro_recur(
             Some(path) => match macro_resolver(path.clone()) {
                 Some(def) => def,
                 None => {
+                    tracing::error!("unresolved macro");
+
                     error =
                         Some(ExpandError::other(format!("unresolved macro {}", path.display(db))));
                     continue;

@@ -10,8 +10,10 @@
 //!
 //! `ReachedFixedPoint` signals about this.
 
+use crate::macro_id_to_def_id;
 use base_db::Edition;
 use hir_expand::name::Name;
+use itertools::Itertools;
 use triomphe::Arc;
 
 use crate::{
@@ -192,6 +194,11 @@ impl DefMap {
             path.display(db.upcast())
         ));
 
+        let segall = path.segments().iter().filter_map(|x| x.as_str()).join("::");
+        if segall.as_str() == "Asset" {
+            // tracing::error!("resolve_path_fp_with_macro_single find asset. kind={:?}", path.kind);
+        }
+
         let mut segments = path.segments().iter().enumerate();
         let mut curr_per_ns = match path.kind {
             PathKind::DollarCrate(krate) => {
@@ -205,7 +212,10 @@ impl DefMap {
                     PerNs::types(module.into(), Visibility::Public, None)
                 }
             }
-            PathKind::Crate => PerNs::types(self.crate_root().into(), Visibility::Public, None),
+            PathKind::Crate => {
+                // tracing::error!("path kind is crate. segment={segall}");
+                PerNs::types(self.crate_root().into(), Visibility::Public, None)
+            }
             // plain import or absolute path in 2015: crate-relative with
             // fallback to extern prelude (with the simplification in
             // rust-lang/rust#57745)
@@ -224,7 +234,12 @@ impl DefMap {
             PathKind::Plain => {
                 let (_, segment) = match segments.next() {
                     Some((idx, segment)) => (idx, segment),
-                    None => return ResolvePathResult::empty(ReachedFixedPoint::Yes),
+                    None => {
+                        if segall == "Asset" {
+                            tracing::error!("asset has no segments");
+                        }
+                        return ResolvePathResult::empty(ReachedFixedPoint::Yes);
+                    }
                 };
                 // The first segment may be a builtin type. If the path has more
                 // than one segment, we first try resolving it as a module
@@ -238,6 +253,7 @@ impl DefMap {
                 tracing::debug!("resolving {:?} in module", segment);
                 self.resolve_name_in_module(
                     db,
+                    path,
                     original_module,
                     segment,
                     prefer_module,
@@ -408,8 +424,26 @@ impl DefMap {
                 }
             };
 
+            if segall == "Asset" && curr_per_ns.macros.is_some() {
+                let id = curr_per_ns
+                    .macros
+                    .as_ref()
+                    .map(|x| (macro_id_to_def_id(db, x.0).is_derive(), x.0));
+
+                // tracing::error!("asset has macro. id={id:?}");
+            }
+
             curr_per_ns = curr_per_ns
                 .filter_visibility(|vis| vis.is_visible_from_def_map(db, self, original_module));
+
+            if segall == "Asset" && curr_per_ns.macros.is_some() {
+                let id = curr_per_ns
+                    .macros
+                    .as_ref()
+                    .map(|x| (macro_id_to_def_id(db, x.0).is_derive(), x.0));
+
+                // tracing::error!("asset has macro. id={id:?}");
+            }
         }
 
         ResolvePathResult::with(curr_per_ns, ReachedFixedPoint::Yes, None, Some(self.krate))
@@ -418,11 +452,17 @@ impl DefMap {
     fn resolve_name_in_module(
         &self,
         db: &dyn DefDatabase,
+        path: &ModPath,
         module: LocalModuleId,
         name: &Name,
         shadow: BuiltinShadowMode,
         expected_macro_subns: Option<MacroSubNs>,
     ) -> PerNs {
+        if let PathKind::Plain = path.kind {
+            if path.segments().iter().filter_map(|x| x.as_str()).join("::") == "Asset" {
+                tracing::error!("resolve plain asset. scope={:?}", self[module].scope);
+            }
+        }
         // Resolve in:
         //  - legacy scope of macro
         //  - current module / scope
