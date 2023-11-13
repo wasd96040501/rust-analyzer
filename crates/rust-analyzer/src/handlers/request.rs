@@ -853,6 +853,7 @@ pub(crate) fn handle_completion(
     snap: GlobalStateSnapshot,
     params: lsp_types::CompletionParams,
 ) -> anyhow::Result<Option<lsp_types::CompletionResponse>> {
+    tracing::error!("handle completion resolve. item={:?}", params);
     let _p = profile::span("handle_completion");
     let text_document_position = params.text_document_position.clone();
     let position = from_proto::file_position(&snap, params.text_document_position)?;
@@ -881,6 +882,7 @@ pub(crate) fn handle_completion_resolve(
     snap: GlobalStateSnapshot,
     mut original_completion: CompletionItem,
 ) -> anyhow::Result<CompletionItem> {
+    tracing::error!("handle completion resolve. item={:?}", original_completion.detail);
     let _p = profile::span("handle_completion_resolve");
 
     if !all_edits_are_disjoint(&original_completion, &[]) {
