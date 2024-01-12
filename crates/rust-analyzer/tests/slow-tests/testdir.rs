@@ -44,7 +44,7 @@ impl TestDir {
 
             #[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
             if symlink {
-                let symlink_path = path.join("_symlink");
+                let symlink_path = base.join(format!("{pid}_{cnt}_symlink"));
                 #[cfg(any(target_os = "macos", target_os = "linux"))]
                 std::os::unix::fs::symlink(path, &symlink_path).unwrap();
 
@@ -75,21 +75,22 @@ impl Drop for TestDir {
             return;
         }
 
-        let filetype = fs::symlink_metadata(&self.path).unwrap().file_type();
-        let actual_path = filetype.is_symlink().then(|| fs::read_link(&self.path).unwrap());
+        let (symlink_file, actual_path) =
+            if fs::symlink_metadata(&self.path).unwrap().file_type().is_symlink() {
+                (Some(self.path.clone()), fs::read_link(&self.path).unwrap())
+            } else {
+                (None, self.path.clone())
+            };
 
-        remove_dir_all(&self.path).unwrap_or_else(|err| {
-            panic!("failed to remove temporary directory {}: {err}", self.path.display())
-        });
-
-        if let Some(actual_path) = actual_path {
-            remove_dir_all(&actual_path).unwrap_or_else(|err| {
-                panic!(
-                    "failed to remove temporary link to directory {}: {err}",
-                    actual_path.display()
-                )
+        if let Some(symlink) = symlink_file {
+            fs::remove_file(symlink.clone()).unwrap_or_else(|err| {
+                panic!("remove symlink failed. path={}, err={err}", symlink.display())
             })
         }
+
+        remove_dir_all(&actual_path).unwrap_or_else(|err| {
+            panic!("failed to remove temporary directory {}: {err}", self.path.display())
+        });
     }
 }
 
