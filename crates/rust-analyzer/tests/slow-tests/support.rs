@@ -106,9 +106,13 @@ impl Project<'_> {
         assert!(toolchain.is_none());
         for entry in fixture {
             let path = tmp_dir.path().join(&entry.path['/'.len_utf8()..]);
-            fs::create_dir_all(path.parent().unwrap()).unwrap_or_else(|err| {
-                panic!("create dir failed. path={:?}, err={err}", path.parent())
-            });
+
+            let parent = path.parent().unwrap();
+            if !parent.exists() {
+                fs::create_dir_all(parent).unwrap_or_else(|err| {
+                    panic!("create dir failed. path={:?}, err={err}", path.parent())
+                });
+            }
             fs::write(path.as_path(), entry.text.as_bytes()).unwrap();
         }
 
