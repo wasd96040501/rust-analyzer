@@ -43,6 +43,7 @@ use crate::{
     TupleField, Type, TypeAlias, TypeParam, VariantDef,
 };
 
+#[derive(Debug)]
 pub enum DescendPreference {
     SameText,
     SameKind,
@@ -125,6 +126,7 @@ pub struct Semantics<'db, DB> {
     imp: SemanticsImpl<'db>,
 }
 
+#[derive(Debug)]
 pub struct SemanticsImpl<'db> {
     pub db: &'db dyn HirDatabase,
     s2d_cache: RefCell<SourceToDefCache>,

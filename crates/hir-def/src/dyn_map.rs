@@ -73,6 +73,7 @@ impl<K: Hash + Eq + 'static, V: 'static> Policy for (K, V) {
     }
 }
 
+#[derive(Debug)]
 pub struct DynMap {
     pub(crate) map: Map,
 }

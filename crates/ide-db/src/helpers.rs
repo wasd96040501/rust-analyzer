@@ -23,7 +23,6 @@ pub fn item_name(db: &RootDatabase, item: ItemInNs) -> Option<Name> {
 }
 
 /// Picks the token with the highest rank returned by the passed in function.
-#[tracing::instrument]
 pub fn pick_best_token(
     tokens: TokenAtOffset<SyntaxToken>,
     f: impl Fn(SyntaxKind) -> usize,
