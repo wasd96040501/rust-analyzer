@@ -518,6 +518,7 @@ impl<'db> SemanticsImpl<'db> {
 
     /// Descend the token into its macro call if it is part of one, returning the tokens in the
     /// expansion that it is associated with.
+    #[tracing::instrument]
     pub fn descend_into_macros(
         &self,
         mode: DescendPreference,

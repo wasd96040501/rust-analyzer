@@ -30,6 +30,7 @@ profile.workspace = true
 stdx.workspace = true
 syntax.workspace = true
 tt.workspace = true
+tracing.workspace = true
 
 [features]
 in-rust-tree = []
