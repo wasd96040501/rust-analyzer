@@ -1200,12 +1200,12 @@ impl<'db> SemanticsImpl<'db> {
 
     /// Returns none if the file of the node is not part of a crate.
     fn analyze(&self, node: &SyntaxNode) -> Option<SourceAnalyzer> {
-        self.analyze_impl(node, None, true)
+        self.analyze_impl(node, None, true, false)
     }
 
     /// Returns none if the file of the node is not part of a crate.
     fn analyze_no_infer(&self, node: &SyntaxNode) -> Option<SourceAnalyzer> {
-        self.analyze_impl(node, None, false)
+        self.analyze_impl(node, None, false, false)
     }
 
     fn analyze_with_offset_no_infer(
@@ -1213,7 +1213,7 @@ impl<'db> SemanticsImpl<'db> {
         node: &SyntaxNode,
         offset: TextSize,
     ) -> Option<SourceAnalyzer> {
-        self.analyze_impl(node, Some(offset), false)
+        self.analyze_impl(node, Some(offset), false, false)
     }
 
     fn analyze_impl(
@@ -1221,11 +1221,18 @@ impl<'db> SemanticsImpl<'db> {
         node: &SyntaxNode,
         offset: Option<TextSize>,
         infer_body: bool,
+        map_back_to_include_pos: bool,
     ) -> Option<SourceAnalyzer> {
         let _p = profile::span("Semantics::analyze_impl");
         let node = self.find_file(node);
 
-        let container = self.with_ctx(|ctx| ctx.find_container(node))?;
+        let container = self.with_ctx(|ctx| ctx.find_container(node)).or_else(|| {
+            if map_back_to_include_pos {
+                todo!()
+            } else {
+                None
+            }
+        })?;
 
         let resolver = match container {
             ChildContainer::DefWithBodyId(def) => {
