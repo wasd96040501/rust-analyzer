@@ -1224,15 +1224,39 @@ impl<'db> SemanticsImpl<'db> {
         map_back_to_include_pos: bool,
     ) -> Option<SourceAnalyzer> {
         let _p = profile::span("Semantics::analyze_impl");
-        let node = self.find_file(node);
+        let snode = node.clone();
+        let mut node = self.find_file(node);
+        let mut new_node = None;
 
-        let container = self.with_ctx(|ctx| ctx.find_container(node)).or_else(|| {
-            if map_back_to_include_pos {
-                todo!()
-            } else {
-                None
+        let mut container = self.with_ctx(|ctx| ctx.find_container(node));
+        if container.is_none() && map_back_to_include_pos {
+            let Some(file_id) = node.file_id.file_id() else {
+                return None;
+            };
+
+            for krate in self.db.relevant_crates(file_id).iter() {
+                for (invoc, include_file_id) in self.db.include_macro_invoc(*krate) {
+                    if include_file_id == file_id {
+                        let x = self.db.lookup_intern_macro_call(invoc);
+                        let z = x.to_node(self.db.upcast());
+                        let zz = z.value.child_or_token_at_range(snode.text_range());
+
+                        if let Some(syntax::NodeOrToken::Node(nn)) = zz {
+                            new_node = Some(InFile { file_id: z.file_id, value: nn });
+                            break;
+                        }
+                    }
+                }
             }
-        })?;
+        };
+
+        if let Some(nn) = new_node {
+            container = self.with_ctx(|ctx| {
+                ctx.find_container(InFile { file_id: nn.file_id, value: &nn.value })
+            });
+        }
+
+        let container = container?;
 
         let resolver = match container {
             ChildContainer::DefWithBodyId(def) => {

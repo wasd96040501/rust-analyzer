@@ -1,7 +1,7 @@
 //! Defines database & queries for name resolution.
-use base_db::{salsa, CrateId, SourceDatabase, Upcast};
+use base_db::{salsa, CrateId, FileId, SourceDatabase, Upcast};
 use either::Either;
-use hir_expand::{db::ExpandDatabase, HirFileId, MacroCallLoc, MacroDefId};
+use hir_expand::{builtin_fn_macro, db::ExpandDatabase, HirFileId, MacroCallLoc, MacroDefId};
 use intern::Interned;
 use la_arena::ArenaMap;
 use span::MacroCallId;
@@ -236,21 +236,18 @@ pub trait DefDatabase: InternDatabase + ExpandDatabase + Upcast<dyn ExpandDataba
 
     fn crate_supports_no_std(&self, crate_id: CrateId) -> bool;
 
-    fn include_macro_call_ids(&self, crate_id: CrateId) -> Vec<MacroCallId>;
+    fn include_macro_invoc(&self, crate_id: CrateId) -> Vec<(MacroCallId, FileId)>;
 }
 
-fn include_macro_call_ids(db: &dyn DefDatabase, krate: CrateId) -> Vec<MacroCallId> {
+fn include_macro_invoc(db: &dyn DefDatabase, krate: CrateId) -> Vec<(MacroCallId, FileId)> {
     db.crate_def_map(krate)
         .modules
         .values()
         .flat_map(|m| m.scope.iter_macro_invoc())
         .filter_map(|invoc| {
-            let loc = db.lookup_intern_macro_call(*invoc.1);
-            if loc.def.is_include() {
-                return Some(*invoc.1);
-            }
-
-            None
+            db.lookup_intern_macro_call(*invoc.1)
+                .include_file_id(db.upcast(), *invoc.1)
+                .map(|x| (*invoc.1, x))
         })
         .collect()
 }
