@@ -93,7 +93,12 @@ fn source_root_crates(db: &dyn SourceDatabaseExt, id: SourceRootId) -> Arc<[Crat
         .iter()
         .filter(|&krate| {
             let root_file = graph[krate].root_file_id;
-            db.file_source_root(root_file) == id
+            let res = db.file_source_root(root_file) == id;
+            if res {
+                // tracing::error!("crate_graph={graph:?}");
+                tracing::error!("source_root_crates eq. crate_id={krate:?}, root_id={id:?}");
+            }
+            res
         })
         .collect::<Vec<_>>();
     crates.sort();

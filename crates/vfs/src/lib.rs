@@ -187,7 +187,9 @@ impl Vfs {
     /// If the path does not currently exists in the `Vfs`, allocates a new
     /// [`FileId`] for it.
     pub fn set_file_contents(&mut self, path: VfsPath, contents: Option<Vec<u8>>) -> bool {
+        let p = path.clone();
         let file_id = self.alloc_file_id(path);
+        tracing::error!("set file contents. path={p:?}, file_id={file_id:?}");
         let change_kind = match (self.get(file_id), contents) {
             (FileState::Deleted, None) => return false,
             (FileState::Deleted, Some(v)) => Change::Create(v),

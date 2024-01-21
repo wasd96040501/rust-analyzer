@@ -57,6 +57,9 @@ impl FileChange {
                 let root_id = SourceRootId(idx as u32);
                 let durability = durability(&root);
                 for file_id in root.iter() {
+                    if !root.is_library {
+                        tracing::error!("set source root. file_id={file_id:?}, root_id={root_id:?}, root={root:?}");
+                    }
                     db.set_file_source_root_with_durability(file_id, root_id, durability);
                 }
                 db.set_source_root_with_durability(root_id, Arc::new(root), durability);

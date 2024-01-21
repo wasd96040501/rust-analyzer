@@ -503,5 +503,6 @@ pub(crate) fn file_id_to_url(vfs: &vfs::Vfs, id: FileId) -> Url {
 pub(crate) fn url_to_file_id(vfs: &vfs::Vfs, url: &Url) -> anyhow::Result<FileId> {
     let path = from_proto::vfs_path(url)?;
     let res = vfs.file_id(&path).ok_or_else(|| anyhow::format_err!("file not found: {path}"))?;
+    tracing::error!("url={url:?}, path={path:?}, file_id={res:?}");
     Ok(res)
 }

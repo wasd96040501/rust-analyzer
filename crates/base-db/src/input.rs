@@ -436,6 +436,7 @@ impl CrateGraph {
         target_layout: Result<Arc<str>, Arc<str>>,
         toolchain: Option<Version>,
     ) -> CrateId {
+        let d = display_name.clone();
         let data = CrateData {
             root_file_id,
             edition,
@@ -450,7 +451,10 @@ impl CrateGraph {
             is_proc_macro,
             toolchain,
         };
-        self.arena.alloc(data)
+        let res = self.arena.alloc(data);
+        tracing::error!("add crate. root_file_id={root_file_id:?}, name={d:?}, crate_id={res:?}");
+
+        res
     }
 
     /// Remove the crate from crate graph. If any crates depend on this crate, the dependency would be replaced

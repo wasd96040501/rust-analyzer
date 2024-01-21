@@ -25,6 +25,7 @@ stdx.workspace = true
 syntax.workspace = true
 vfs.workspace = true
 span.workspace = true
+tracing.workspace = true
 
 [lints]
 workspace = true

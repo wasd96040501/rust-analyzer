@@ -390,7 +390,13 @@ impl DefMap {
     pub fn modules_for_file(&self, file_id: FileId) -> impl Iterator<Item = LocalModuleId> + '_ {
         self.modules
             .iter()
-            .filter(move |(_id, data)| data.origin.file_id() == Some(file_id))
+            .filter(move |(_id, data)| {
+                tracing::error!(
+                    "modules for file. origin={:?}, this={file_id:?}",
+                    data.origin.file_id()
+                );
+                data.origin.file_id() == Some(file_id)
+            })
             .map(|(id, _data)| id)
     }
 

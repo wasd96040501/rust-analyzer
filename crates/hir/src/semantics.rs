@@ -520,12 +520,14 @@ impl<'db> SemanticsImpl<'db> {
 
     /// Descend the token into its macro call if it is part of one, returning the tokens in the
     /// expansion that it is associated with.
-    #[tracing::instrument]
+
     pub fn descend_into_macros(
         &self,
         mode: DescendPreference,
         token: SyntaxToken,
     ) -> SmallVec<[SyntaxToken; 1]> {
+        tracing::error!("descend_into_macros. {:?} {:?}", mode, token);
+
         enum Dp<'t> {
             SameText(&'t str),
             SameKind(SyntaxKind),
@@ -615,10 +617,15 @@ impl<'db> SemanticsImpl<'db> {
         token: SyntaxToken,
         f: &mut dyn FnMut(InFile<SyntaxToken>) -> ControlFlow<()>,
     ) {
+        tracing::error!("descend_into_macros_impl. token={token:?}, parent={:?}", token.parent());
+
         let _p = profile::span("descend_into_macros");
         let sa = match token.parent().and_then(|parent| self.analyze_no_infer(&parent)) {
             Some(it) => it,
-            None => return,
+            None => {
+                tracing::error!("decent early return. token={token:?}");
+                return;
+            }
         };
 
         let span = match sa.file_id.file_id() {
@@ -1211,7 +1218,9 @@ impl<'db> SemanticsImpl<'db> {
     }
 
     /// Returns none if the file of the node is not part of a crate.
+
     fn analyze_no_infer(&self, node: &SyntaxNode) -> Option<SourceAnalyzer> {
+        tracing::error!("analyze_no_infer {node:?}");
         self.analyze_impl(node, None, false)
     }
 
@@ -1230,9 +1239,14 @@ impl<'db> SemanticsImpl<'db> {
         infer_body: bool,
     ) -> Option<SourceAnalyzer> {
         let _p = profile::span("Semantics::analyze_impl");
+        tracing::error!("analyzer_impl origin node={node:?}");
         let node = self.find_file(node);
 
-        let container = self.with_ctx(|ctx| ctx.find_container(node))?;
+        let container = self.with_ctx(|ctx| ctx.find_container(node));
+        if container.is_none() {
+            tracing::error!("analyzer_impl container is none. node={node:?}")
+        }
+        let container = container?;
 
         let resolver = match container {
             ChildContainer::DefWithBodyId(def) => {
@@ -1278,6 +1292,7 @@ impl<'db> SemanticsImpl<'db> {
     /// Wraps the node in a [`InFile`] with the file id it belongs to.
     fn find_file<'node>(&self, node: &'node SyntaxNode) -> InFile<&'node SyntaxNode> {
         let root_node = find_root(node);
+        tracing::error!("find file. node={node:?}, root={root_node:?}");
         let file_id = self.lookup(&root_node).unwrap_or_else(|| {
             panic!(
                 "\n\nFailed to lookup {:?} in this Semantics.\n\

@@ -119,7 +119,9 @@ impl SourceToDefCtx<'_, '_> {
     pub(super) fn file_to_def(&self, file: FileId) -> SmallVec<[ModuleId; 1]> {
         let _p = profile::span("SourceBinder::to_module_def");
         let mut mods = SmallVec::new();
-        for &crate_id in self.db.relevant_crates(file).iter() {
+        let cratelist = self.db.relevant_crates(file);
+        tracing::error!("rela crate list={cratelist:?}");
+        for &crate_id in cratelist.iter() {
             // FIXME: inner items
             let crate_def_map = self.db.crate_def_map(crate_id);
             mods.extend(
@@ -370,7 +372,9 @@ impl SourceToDefCtx<'_, '_> {
             }
         }
 
-        let def = self.file_to_def(src.file_id.original_file(self.db.upcast())).get(0).copied()?;
+        let def = self.file_to_def(src.file_id.original_file(self.db.upcast())).get(0).copied();
+        tracing::error!("find container. node={src:?}, def={def:?}");
+        let def = def?;
         Some(def.into())
     }
 

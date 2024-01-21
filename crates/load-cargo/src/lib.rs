@@ -2,7 +2,7 @@
 //! for incorporating changes.
 // Note, don't remove any public api from this. This API is consumed by external tools
 // to run rust-analyzer as a library.
-use std::{collections::hash_map::Entry, mem, path::Path, sync};
+use std::{backtrace, collections::hash_map::Entry, mem, path::Path, sync};
 
 use crossbeam_channel::{unbounded, Receiver};
 use hir_expand::proc_macro::{
@@ -259,6 +259,8 @@ impl SourceRootConfig {
             .map(|(idx, file_set)| {
                 let is_local = self.local_filesets.contains(&idx);
                 if is_local {
+                    let bt = backtrace::Backtrace::force_capture();
+                    tracing::error!("add fileset. file_set={file_set:?}, bt={bt:?}");
                     SourceRoot::new_local(file_set)
                 } else {
                     SourceRoot::new_library(file_set)

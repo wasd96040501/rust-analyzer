@@ -280,7 +280,6 @@ pub enum IdentClass {
 }
 
 impl IdentClass {
-    #[tracing::instrument]
     pub fn classify_node(
         sema: &Semantics<'_, RootDatabase>,
         node: &SyntaxNode,
@@ -321,7 +320,6 @@ impl IdentClass {
             .or_else(|| NameClass::classify_lifetime(sema, lifetime).map(IdentClass::NameClass))
     }
 
-    #[tracing::instrument]
     pub fn definitions(self) -> ArrayVec<Definition, 2> {
         let mut res = ArrayVec::new();
         match self {
