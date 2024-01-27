@@ -23,8 +23,8 @@ use hir_expand::{
     db::ExpandDatabase,
     files::{FileIdToSyntax, InRealFile},
     name::AsName,
-    ExpandResult, ExpansionInfo, InMacroFile, MacroCallId, MacroCallKind, MacroFileId,
-    MacroFileIdExt,
+    ExpandResult, ExpansionInfo, HirFileIdExt, InMacroFile, MacroCallId, MacroCallKind,
+    MacroFileId, MacroFileIdExt,
 };
 use itertools::Itertools;
 use rustc_hash::{FxHashMap, FxHashSet};
@@ -619,7 +619,7 @@ impl<'db> SemanticsImpl<'db> {
         let parent = token.parent()?;
         let file_id = self.find_file(&parent).file_id.file_id()?;
         let onode = file_id.file_syntax(self.db.upcast());
-        println!("origin root node={onode:?}, file_id={file_id:?}");
+        // println!("origin root node={onode:?}, file_id={file_id:?}");
 
         for (invoc, included_file_id) in self
             .db
@@ -629,10 +629,14 @@ impl<'db> SemanticsImpl<'db> {
             .filter(|(_, included_file_id)| *included_file_id == file_id)
         {
             let call = self.db.lookup_intern_macro_call(invoc);
-            let call_file_id = call.kind.file_id();
-            let MacroCallKind::FnLike { ast_id, .. } = call.kind else {
-                panic!("should be fn like");
-            };
+            // let callnode = call.kind.file_id().original_call_node(self.db.upcast()).unwrap();
+            let callnode = invoc.as_file().original_call_node(self.db.upcast());
+            // println!("callnode={callnode:?}");
+            let callnode = callnode.unwrap();
+
+            // let MacroCallKind::FnLike { ast_id, .. } = call.kind else {
+            //     panic!("should be fn like");
+            // };
 
             let expinfo = invoc.as_macro_file().expansion_info(self.db.upcast());
             {
@@ -640,23 +644,23 @@ impl<'db> SemanticsImpl<'db> {
                 self.cache(value, file_id.into());
             }
 
+            // tracing::error!("expinfo={:?}", expinfo.exp_map);
+            tracing::error!("token_range={:?}", token.text_range());
             let (_, s) =
                 expinfo.exp_map.iter().find(|(_, x)| x.range == token.text_range()).unwrap();
 
             // println!("try find. yyy={s:?}, call_file_id={call_file_id:?}",);
-            println!(
-                "callnode={:?}, file_id={:?}",
-                ast_id.file_syntax(self.db.upcast()),
-                ast_id.file_id
-            );
+            // tracing::error!(
+            //     "callnode={:?}, file_id={:?}",
+            //     ast_id.file_syntax(self.db.upcast()),
+            //     ast_id.file_id
+            // );
 
             let InMacroFile { file_id: _, value: mapped_tokens } =
                 expinfo.map_range_down(s).unwrap();
 
-            if let Some((y1, y2)) =
-                mapped_tokens.into_iter().next().map(|t| (ast_id.file_syntax(self.db.upcast()), t))
-            {
-                return Some((ast_id.file_id, y1, y2, s, invoc.as_file()));
+            if let Some(t) = mapped_tokens.into_iter().next() {
+                return Some((callnode.file_id.into(), callnode.value, t, s, invoc.as_file()));
             };
         }
 
@@ -669,8 +673,8 @@ impl<'db> SemanticsImpl<'db> {
         f: &mut dyn FnMut(InFile<SyntaxToken>) -> ControlFlow<()>,
     ) {
         let _p = profile::span("descend_into_macros");
-        println!("descend into macro call. token={token:?}");
-        tracing::error!("descend into macro call. token={token:?}");
+        // println!("descend into macro call. token={token:?}");
+        // tracing::error!("descend into macro call. token={token:?}");
         let mut newspan = None;
         let mut newmfileid = None;
 
@@ -685,13 +689,16 @@ impl<'db> SemanticsImpl<'db> {
 
                 newmfileid = Some(mfileid);
 
-                println!("new_file_node={new_file_node:?}");
+                tracing::error!("new_file_node={new_file_node:?}");
 
                 token = new_token;
                 newspan = Some(s);
 
+                tracing::error!("new_file_id={new_file_id:?}");
                 let _ = self.parse(new_file_id.file_id().unwrap());
-                self.analyze_no_infer(&new_file_node).unwrap()
+                let res = self.analyze_no_infer(&new_file_node).unwrap();
+
+                res
             }
         };
 
@@ -1390,10 +1397,6 @@ impl<'db> SemanticsImpl<'db> {
     /// Wraps the node in a [`InFile`] with the file id it belongs to.
     fn find_file<'node>(&self, node: &'node SyntaxNode) -> InFile<&'node SyntaxNode> {
         let root_node = find_root(node);
-        println!(
-            "node={node:?}, all={:?}",
-            self.cache.borrow().keys().map(|it| format!("{it:?}")).collect::<Vec<_>>().join(", ")
-        );
         let file_id = self.lookup(&root_node).unwrap_or_else(|| {
             panic!(
                 "\n\nFailed to lookup {:?} in this Semantics.\n\

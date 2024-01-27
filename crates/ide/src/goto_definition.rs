@@ -74,7 +74,7 @@ pub(crate) fn goto_definition(
         .filter_map(|token| {
             let parent = token.parent()?;
 
-            println!("finded token={token:?}, parent={parent:?}");
+            // println!("finded token={token:?}, parent={parent:?}");
 
             if let Some(tt) = ast::TokenTree::cast(parent.clone()) {
                 if let Some(x) = try_lookup_include_path(sema, tt, token.clone(), file_id) {
