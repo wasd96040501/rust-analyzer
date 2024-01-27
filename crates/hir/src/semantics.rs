@@ -19,18 +19,23 @@ use hir_def::{
     AsMacroCall, DefWithBodyId, FunctionId, MacroId, TraitId, VariantId,
 };
 use hir_expand::{
-    attrs::collect_attrs, db::ExpandDatabase, files::InRealFile, name::AsName, ExpansionInfo,
-    InMacroFile, MacroCallId, MacroFileId, MacroFileIdExt,
+    attrs::collect_attrs,
+    db::ExpandDatabase,
+    files::{FileIdToSyntax, InRealFile},
+    name::AsName,
+    ExpandResult, ExpansionInfo, InMacroFile, MacroCallId, MacroCallKind, MacroFileId,
+    MacroFileIdExt,
 };
 use itertools::Itertools;
 use rustc_hash::{FxHashMap, FxHashSet};
 use smallvec::{smallvec, SmallVec};
+use span::Span;
 use stdx::TupleExt;
 use syntax::{
     algo::skip_trivia_token,
     ast::{self, HasAttrs as _, HasGenericParams, HasLoopBody, IsString as _},
-    match_ast, AstNode, AstToken, Direction, SyntaxKind, SyntaxNode, SyntaxNodePtr, SyntaxToken,
-    TextRange, TextSize,
+    match_ast, AstNode, AstToken, Direction, RustLanguage, SyntaxKind, SyntaxNode, SyntaxNodePtr,
+    SyntaxToken, TextRange, TextSize,
 };
 
 use crate::{
@@ -607,28 +612,110 @@ impl<'db> SemanticsImpl<'db> {
         res
     }
 
-    fn descend_into_macros_impl(
+    fn is_from_include_file(
         &self,
         token: SyntaxToken,
+    ) -> Option<(HirFileId, SyntaxNode, SyntaxToken, Span, HirFileId)> {
+        let parent = token.parent()?;
+        let file_id = self.find_file(&parent).file_id.file_id()?;
+        let onode = file_id.file_syntax(self.db.upcast());
+        println!("origin root node={onode:?}, file_id={file_id:?}");
+
+        for (invoc, included_file_id) in self
+            .db
+            .relevant_crates(file_id)
+            .iter()
+            .flat_map(|krate| self.db.include_macro_invoc(*krate))
+            .filter(|(_, included_file_id)| *included_file_id == file_id)
+        {
+            let call = self.db.lookup_intern_macro_call(invoc);
+            let call_file_id = call.kind.file_id();
+            let MacroCallKind::FnLike { ast_id, .. } = call.kind else {
+                panic!("should be fn like");
+            };
+
+            let expinfo = invoc.as_macro_file().expansion_info(self.db.upcast());
+            {
+                let InMacroFile { file_id, value } = expinfo.expanded();
+                self.cache(value, file_id.into());
+            }
+
+            let (_, s) =
+                expinfo.exp_map.iter().find(|(_, x)| x.range == token.text_range()).unwrap();
+
+            // println!("try find. yyy={s:?}, call_file_id={call_file_id:?}",);
+            println!(
+                "callnode={:?}, file_id={:?}",
+                ast_id.file_syntax(self.db.upcast()),
+                ast_id.file_id
+            );
+
+            let InMacroFile { file_id: _, value: mapped_tokens } =
+                expinfo.map_range_down(s).unwrap();
+
+            if let Some((y1, y2)) =
+                mapped_tokens.into_iter().next().map(|t| (ast_id.file_syntax(self.db.upcast()), t))
+            {
+                return Some((ast_id.file_id, y1, y2, s, invoc.as_file()));
+            };
+        }
+
+        None
+    }
+
+    fn descend_into_macros_impl(
+        &self,
+        mut token: SyntaxToken,
         f: &mut dyn FnMut(InFile<SyntaxToken>) -> ControlFlow<()>,
     ) {
         let _p = profile::span("descend_into_macros");
+        println!("descend into macro call. token={token:?}");
+        tracing::error!("descend into macro call. token={token:?}");
+        let mut newspan = None;
+        let mut newmfileid = None;
+
         let sa = match token.parent().and_then(|parent| self.analyze_no_infer(&parent)) {
             Some(it) => it,
-            None => return,
+            None => {
+                let Some((new_file_id, new_file_node, new_token, s, mfileid)) =
+                    self.is_from_include_file(token)
+                else {
+                    return;
+                };
+
+                newmfileid = Some(mfileid);
+
+                println!("new_file_node={new_file_node:?}");
+
+                token = new_token;
+                newspan = Some(s);
+
+                let _ = self.parse(new_file_id.file_id().unwrap());
+                self.analyze_no_infer(&new_file_node).unwrap()
+            }
         };
 
-        let span = match sa.file_id.file_id() {
-            Some(file_id) => self.db.real_span_map(file_id).span_for_range(token.text_range()),
-            None => {
-                stdx::never!();
-                return;
+        let span = if let Some(s) = newspan {
+            s
+        } else {
+            match sa.file_id.file_id() {
+                Some(file_id) => self.db.real_span_map(file_id).span_for_range(token.text_range()),
+                None => {
+                    stdx::never!();
+                    return;
+                }
             }
         };
 
         let mut cache = self.expansion_info_cache.borrow_mut();
         let mut mcache = self.macro_call_cache.borrow_mut();
         let def_map = sa.resolver.def_map();
+
+        let mut stack: Vec<(_, SmallVec<[_; 2]>)> = if let Some(mfileid) = newmfileid {
+            vec![(mfileid, smallvec![token])]
+        } else {
+            vec![(sa.file_id, smallvec![token])]
+        };
 
         let mut process_expansion_for_token = |stack: &mut Vec<_>, macro_file| {
             let expansion_info = cache
@@ -650,8 +737,6 @@ impl<'db> SemanticsImpl<'db> {
             stack.push((HirFileId::from(file_id), mapped_tokens));
             res
         };
-
-        let mut stack: Vec<(_, SmallVec<[_; 2]>)> = vec![(sa.file_id, smallvec![token])];
 
         while let Some((file_id, mut tokens)) = stack.pop() {
             while let Some(token) = tokens.pop() {
@@ -1224,37 +1309,40 @@ impl<'db> SemanticsImpl<'db> {
         map_back_to_include_pos: bool,
     ) -> Option<SourceAnalyzer> {
         let _p = profile::span("Semantics::analyze_impl");
-        let snode = node.clone();
-        let mut node = self.find_file(node);
-        let mut new_node = None;
+        let node = self.find_file(node);
 
-        let mut container = self.with_ctx(|ctx| ctx.find_container(node));
-        if container.is_none() && map_back_to_include_pos {
-            let Some(file_id) = node.file_id.file_id() else {
-                return None;
-            };
+        let container = self.with_ctx(|ctx| ctx.find_container(node));
+        // if container.is_none() && map_back_to_include_pos {
+        //     let Some(file_id) = node.file_id.file_id() else {
+        //         return None;
+        //     };
 
-            for krate in self.db.relevant_crates(file_id).iter() {
-                for (invoc, include_file_id) in self.db.include_macro_invoc(*krate) {
-                    if include_file_id == file_id {
-                        let x = self.db.lookup_intern_macro_call(invoc);
-                        let z = x.to_node(self.db.upcast());
-                        let zz = z.value.child_or_token_at_range(snode.text_range());
+        //     for krate in self.db.relevant_crates(file_id).iter() {
+        //         for (invoc, include_file_id) in self.db.include_macro_invoc(*krate) {
+        //             if include_file_id == file_id {
+        //                 let macro_file_id = invoc.as_file();
+        //                 let root = self.db.parse_or_expand(macro_file_id);
 
-                        if let Some(syntax::NodeOrToken::Node(nn)) = zz {
-                            new_node = Some(InFile { file_id: z.file_id, value: nn });
-                            break;
-                        }
-                    }
-                }
-            }
-        };
+        //                 // let x = self.db.lookup_intern_macro_call(invoc);
 
-        if let Some(nn) = new_node {
-            container = self.with_ctx(|ctx| {
-                ctx.find_container(InFile { file_id: nn.file_id, value: &nn.value })
-            });
-        }
+        //                 // let z = x.to_node(self.db.upcast());
+        //                 // let zz = z.value.child_or_token_at_range(snode.text_range());
+        //                 let zz = root.child_or_token_at_range(snode.text_range());
+
+        //                 if let Some(syntax::NodeOrToken::Node(nn)) = zz {
+        //                     new_node = Some(InFile { file_id: macro_file_id, value: nn });
+        //                     break;
+        //                 }
+        //             }
+        //         }
+        //     }
+        // };
+
+        // if let Some(nn) = new_node {
+        //     container = self.with_ctx(|ctx| {
+        //         ctx.find_container(InFile { file_id: nn.file_id, value: &nn.value })
+        //     });
+        // }
 
         let container = container?;
 
@@ -1302,6 +1390,10 @@ impl<'db> SemanticsImpl<'db> {
     /// Wraps the node in a [`InFile`] with the file id it belongs to.
     fn find_file<'node>(&self, node: &'node SyntaxNode) -> InFile<&'node SyntaxNode> {
         let root_node = find_root(node);
+        println!(
+            "node={node:?}, all={:?}",
+            self.cache.borrow().keys().map(|it| format!("{it:?}")).collect::<Vec<_>>().join(", ")
+        );
         let file_id = self.lookup(&root_node).unwrap_or_else(|| {
             panic!(
                 "\n\nFailed to lookup {:?} in this Semantics.\n\

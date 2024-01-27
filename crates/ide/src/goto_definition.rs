@@ -74,6 +74,8 @@ pub(crate) fn goto_definition(
         .filter_map(|token| {
             let parent = token.parent()?;
 
+            println!("finded token={token:?}, parent={parent:?}");
+
             if let Some(tt) = ast::TokenTree::cast(parent.clone()) {
                 if let Some(x) = try_lookup_include_path(sema, tt, token.clone(), file_id) {
                     return Some(vec![x]);
@@ -205,6 +207,8 @@ fn def_to_nav(db: &RootDatabase, def: Definition) -> Vec<NavigationTarget> {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     use ide_db::base_db::FileRange;
     use itertools::Itertools;
 
@@ -226,6 +230,7 @@ mod tests {
             .map(|(FileRange { file_id, range }, _)| FileRange { file_id, range })
             .sorted_by_key(cmp)
             .collect::<Vec<_>>();
+
         assert_eq!(expected, navs);
     }
 
@@ -234,6 +239,36 @@ mod tests {
         let navs = analysis.goto_definition(position).unwrap().expect("no definition found").info;
 
         assert!(navs.is_empty(), "didn't expect this to resolve anywhere: {navs:?}")
+    }
+
+    #[test]
+    fn goto_def_in_included_file() {
+        check(
+            r#"
+//- /main.rs
+#[rustc_builtin_macro]
+macro_rules! include {}
+
+include!("a.rs");
+
+fn foo2() {
+    foo();
+}
+
+fn main() {
+    println!("hh");
+}
+
+//- /a.rs
+fn foo3() {
+ //^^^^
+}
+
+fn foo() {
+    foo3$0();
+}
+"#,
+        );
     }
 
     #[test]

@@ -604,8 +604,11 @@ impl NameRefClass {
         }
 
         if let Some(path) = ast::PathSegment::cast(parent.clone()).map(|it| it.parent_path()) {
+            println!("find path={path:?}, parent={:?}", path.parent_path());
+
             if path.parent_path().is_none() {
                 if let Some(macro_call) = path.syntax().parent().and_then(ast::MacroCall::cast) {
+                    println!("macro_call={macro_call:?}");
                     // Only use this to resolve to macro calls for last segments as qualifiers resolve
                     // to modules below.
                     if let Some(macro_def) = sema.resolve_macro_call(&macro_call) {

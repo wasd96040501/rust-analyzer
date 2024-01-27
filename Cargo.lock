@@ -483,8 +483,10 @@ dependencies = [
  "profile",
  "rustc-hash",
  "smallvec",
+ "span",
  "stdx",
  "syntax",
+ "tracing",
  "triomphe",
  "tt",
 ]
