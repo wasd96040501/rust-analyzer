@@ -80,7 +80,7 @@ impl<FileKind, L, R> InFileWrapper<FileKind, Either<L, R>> {
 
 // endregion:transpose impls
 
-pub trait FileIdToSyntax: Copy {
+trait FileIdToSyntax: Copy {
     fn file_syntax(self, db: &dyn db::ExpandDatabase) -> SyntaxNode;
 }
 

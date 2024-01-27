@@ -486,7 +486,6 @@ dependencies = [
  "span",
  "stdx",
  "syntax",
- "tracing",
  "triomphe",
  "tt",
 ]

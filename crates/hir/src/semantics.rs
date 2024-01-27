@@ -19,12 +19,8 @@ use hir_def::{
     AsMacroCall, DefWithBodyId, FunctionId, MacroId, TraitId, VariantId,
 };
 use hir_expand::{
-    attrs::collect_attrs,
-    db::ExpandDatabase,
-    files::{FileIdToSyntax, InRealFile},
-    name::AsName,
-    ExpandResult, ExpansionInfo, HirFileIdExt, InMacroFile, MacroCallId, MacroCallKind,
-    MacroFileId, MacroFileIdExt,
+    attrs::collect_attrs, db::ExpandDatabase, files::InRealFile, name::AsName, ExpansionInfo,
+    HirFileIdExt, InMacroFile, MacroCallId, MacroFileId, MacroFileIdExt,
 };
 use itertools::Itertools;
 use rustc_hash::{FxHashMap, FxHashSet};
@@ -34,8 +30,8 @@ use stdx::TupleExt;
 use syntax::{
     algo::skip_trivia_token,
     ast::{self, HasAttrs as _, HasGenericParams, HasLoopBody, IsString as _},
-    match_ast, AstNode, AstToken, Direction, RustLanguage, SyntaxKind, SyntaxNode, SyntaxNodePtr,
-    SyntaxToken, TextRange, TextSize,
+    match_ast, AstNode, AstToken, Direction, SyntaxKind, SyntaxNode, SyntaxNodePtr, SyntaxToken,
+    TextRange, TextSize,
 };
 
 use crate::{
