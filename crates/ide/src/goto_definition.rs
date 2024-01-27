@@ -205,8 +205,6 @@ fn def_to_nav(db: &RootDatabase, def: Definition) -> Vec<NavigationTarget> {
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
-
     use ide_db::base_db::FileRange;
     use itertools::Itertools;
 

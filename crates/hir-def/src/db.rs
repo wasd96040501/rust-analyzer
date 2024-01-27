@@ -1,7 +1,7 @@
 //! Defines database & queries for name resolution.
 use base_db::{salsa, CrateId, FileId, SourceDatabase, Upcast};
 use either::Either;
-use hir_expand::{builtin_fn_macro, db::ExpandDatabase, HirFileId, MacroCallLoc, MacroDefId};
+use hir_expand::{db::ExpandDatabase, HirFileId, MacroDefId};
 use intern::Interned;
 use la_arena::ArenaMap;
 use span::MacroCallId;

@@ -32,7 +32,7 @@ use base_db::{CrateId, Edition, FileId};
 use either::Either;
 use span::{FileRange, HirFileIdRepr, Span, SyntaxContextId};
 use syntax::{
-    ast::{self, AstNode, MacroCall},
+    ast::{self, AstNode},
     SyntaxNode, SyntaxToken, TextRange, TextSize,
 };
 
