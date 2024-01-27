@@ -1306,9 +1306,7 @@ impl<'db> SemanticsImpl<'db> {
         let _p = profile::span("Semantics::analyze_impl");
         let node = self.find_file(node);
 
-        let container = self.with_ctx(|ctx| ctx.find_container(node));
-
-        let container = container?;
+        let container = self.with_ctx(|ctx| ctx.find_container(node))?;
 
         let resolver = match container {
             ChildContainer::DefWithBodyId(def) => {
