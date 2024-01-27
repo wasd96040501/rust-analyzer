@@ -247,21 +247,17 @@ macro_rules! include {}
 
 include!("a.rs");
 
-fn foo2() {
+fn main() {
     foo();
 }
 
-fn main() {
-    println!("hello world");
-}
-
 //- /a.rs
-fn foo3() {
- //^^^^
+fn func_in_include() {
+ //^^^^^^^^^^^^^^^
 }
 
 fn foo() {
-    foo3$0();
+    func_in_include$0();
 }
 "#,
         );
