@@ -252,7 +252,7 @@ fn foo2() {
 }
 
 fn main() {
-    println!("hh");
+    println!("hello world");
 }
 
 //- /a.rs
