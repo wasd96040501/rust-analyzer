@@ -49,7 +49,6 @@ pub(crate) fn range_or_position(ra_fixture: &str) -> (Analysis, FileId, RangeOrO
 pub(crate) fn annotations(ra_fixture: &str) -> (Analysis, FilePosition, Vec<(FileRange, String)>) {
     let mut host = AnalysisHost::default();
     let change_fixture = ChangeFixture::parse(ra_fixture);
-    println!("changes={:?}", change_fixture.change);
     host.db.enable_proc_attr_macros();
     host.db.apply_change(change_fixture.change);
     let (file_id, range_or_offset) = change_fixture.file_position.expect("expected a marker ($0)");
